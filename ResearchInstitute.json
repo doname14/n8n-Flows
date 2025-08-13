@@ -1,0 +1,349 @@
+{
+  "name": "ResearchInstitute",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "5e734e16-a0d8-4c35-9389-63b846416c80",
+      "name": "When clicking Test workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2080,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "search_query",
+              "stringValue": "={{ $json.search_query || 'AI education companies contact information team leadership' }}"
+            },
+            {
+              "name": "timeframe",
+              "stringValue": "={{ $json.timeframe || 'month' }}"
+            },
+            {
+              "name": "max_documents"
+            },
+            {
+              "name": "output_spreadsheet_id",
+              "stringValue": "={{ $json.output_spreadsheet_id || '' }}"
+            },
+            {
+              "name": "serpapi_key",
+              "stringValue": "98a6e0919892764ef2c0b1c3343aef7839775a5d9cfb65294d0c104c5806cd91"
+            },
+            {
+              "name": "execution_user",
+              "stringValue": "Don256"
+            },
+            {
+              "name": "execution_date",
+              "stringValue": "2025-08-13"
+            },
+            {
+              "name": "execution_time",
+              "stringValue": "2025-08-13 22:37:29"
+            },
+            {
+              "name": "research_focus",
+              "stringValue": "Contact extraction and business intelligence gathering"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "68043a21-a815-45b7-97f0-1d812e83994b",
+      "name": "Set Research Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -1776,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google"
+            },
+            {
+              "name": "q",
+              "value": "={{ $json.search_query }}"
+            },
+            {
+              "name": "api_key",
+              "value": "={{ $json.serpapi_key }}"
+            },
+            {
+              "name": "num",
+              "value": "={{ $json.max_documents }}"
+            },
+            {
+              "name": "tbs",
+              "value": "={{ $json.timeframe === 'day' ? 'qdr:d' : $json.timeframe === 'week' ? 'qdr:w' : $json.timeframe === 'month' ? 'qdr:m' : 'qdr:y' }}"
+            },
+            {
+              "name": "hl",
+              "value": "en"
+            },
+            {
+              "name": "gl",
+              "value": "us"
+            },
+            {
+              "name": "device",
+              "value": "desktop"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "68b36b20-0100-4914-9c45-4ac898e54b5a",
+      "name": "SerpAPI Document Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1456,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced Document Discovery & Filtering - SINGLE DOCUMENT TEST - Don256 - 2025-08-13 22:58:43\nconst response = $json;\nconst inputParams = $('Set Research Parameters').first().json;\nconst maxDocs = 1; // TESTING: Force to 1 document only\nconst spreadsheetId = inputParams.output_spreadsheet_id || '';\nconst executionUser = inputParams.execution_user || 'Don256';\nconst executionDate = inputParams.execution_date || '2025-08-13';\nconst executionTime = inputParams.execution_time || '2025-08-13 22:58:43';\n\nconsole.log('=== SINGLE DOCUMENT TEST - Don256 - 2025-08-13 22:58:43 ===');\nconsole.log('SerpAPI Response Keys:', Object.keys(response));\nconsole.log('Search Info:', response.search_information);\n\n// Validate search results\nif (!response.organic_results || !Array.isArray(response.organic_results) || response.organic_results.length === 0) {\n  console.log('❌ No organic results found');\n  return [{ \n    json: { \n      error: 'No search results found for research query', \n      search_info: response.search_information || {},\n      response_keys: Object.keys(response),\n      total_results: response.search_information?.total_results || 0,\n      suggestion: 'Try adjusting your search query, timeframe, or adding terms like \"contact\", \"about\", \"team\", \"leadership\"',\n      processed_by: executionUser,\n      timestamp: executionTime\n    } \n  }];\n}\n\nconst results = response.organic_results.slice(0, 5); // Get first 5 to choose from\nconsole.log(`Processing ${results.length} results to find 1 best document`);\n\n// Find the best single document for testing\nconst processedDocuments = [];\n\nfor (let i = 0; i < results.length; i++) {\n  const result = results[i];\n  \n  if (!result.link) {\n    console.log(`Skipping result ${i} - no link`);\n    continue;\n  }\n  \n  const url = result.link;\n  const title = (result.title || '').toLowerCase();\n  const snippet = (result.snippet || '').toLowerCase();\n  \n  // Exclude non-contact domains\n  const excludeDomains = [\n    'youtube.com', 'facebook.com', 'twitter.com', 'instagram.com',\n    'reddit.com', 'pinterest.com', 'tiktok.com', 'linkedin.com/feed',\n    'amazon.com', 'ebay.com', 'walmart.com', 'wikipedia.org'\n  ];\n  \n  // High-value contact indicators\n  const contactIndicators = [\n    'contact', 'about', 'team', 'leadership', 'company', 'organization',\n    'staff', 'management', 'directory', 'people', 'executive', 'founder',\n    'board', 'management-team', 'our-team', 'leadership-team', 'meet-our',\n    'advisory', 'bio', 'profile', 'who-we-are', 'careers', 'press'\n  ];\n  \n  // Business quality indicators\n  const businessIndicators = [\n    'ai', 'artificial intelligence', 'education', 'technology', 'tech',\n    'innovation', 'software', 'platform', 'solution', 'company',\n    'corporation', 'inc', 'llc', 'ltd', 'enterprise', 'startup'\n  ];\n  \n  const isExcluded = excludeDomains.some(domain => url.includes(domain));\n  const hasContactContent = contactIndicators.some(indicator => \n    url.includes(indicator) || title.includes(indicator) || snippet.includes(indicator)\n  );\n  const hasBusinessContent = businessIndicators.some(indicator => \n    title.includes(indicator) || snippet.includes(indicator)\n  );\n  \n  // Calculate relevance score\n  let relevanceScore = 0.5; // Base score\n  \n  if (hasContactContent) relevanceScore += 0.3;\n  if (hasBusinessContent) relevanceScore += 0.2;\n  if (result.position <= 3) relevanceScore += 0.2;\n  if (url.includes('.edu') || url.includes('.org')) relevanceScore += 0.1;\n  if (url.toLowerCase().endsWith('.pdf')) relevanceScore += 0.15;\n  \n  // TESTING: Include if not excluded and has ANY relevance (lowered threshold)\n  if (!isExcluded && relevanceScore > 0.4) {\n    processedDocuments.push({\n      json: {\n        document_url: url,\n        input_type: url.toLowerCase().endsWith('.pdf') ? 'pdf' : 'url',\n        spreadsheet_id: spreadsheetId,\n        document_title: result.title || '',\n        document_snippet: result.snippet || '',\n        document_index: 1, // Always 1 for single document test\n        source: 'serpapi_single_document_test',\n        search_position: result.position || i + 1,\n        processed_by: executionUser,\n        execution_date: executionDate,\n        execution_time: executionTime,\n        relevance_score: Math.round(relevanceScore * 100) / 100,\n        has_contact_indicators: hasContactContent,\n        has_business_indicators: hasBusinessContent,\n        research_query: inputParams.search_query,\n        timeframe: inputParams.timeframe,\n        discovery_timestamp: '2025-08-13T22:58:43Z',\n        test_mode: 'single_document'\n      }\n    });\n    \n    // TESTING: Break after finding first suitable document\n    console.log(`✅ TESTING: Selected document - ${result.title}`);\n    console.log(`URL: ${url}`);\n    console.log(`Relevance Score: ${relevanceScore}`);\n    break;\n  }\n}\n\nconsole.log(`✅ TESTING: Processing 1 document for contact extraction`);\n\n// Ensure we have a document to process\nif (processedDocuments.length === 0) {\n  // TESTING: If no good documents found, take the first non-excluded one\n  for (let i = 0; i < results.length; i++) {\n    const result = results[i];\n    if (result.link && !excludeDomains.some(domain => result.link.includes(domain))) {\n      processedDocuments.push({\n        json: {\n          document_url: result.link,\n          input_type: 'url',\n          spreadsheet_id: spreadsheetId,\n          document_title: result.title || 'Test Document',\n          document_snippet: result.snippet || '',\n          document_index: 1,\n          source: 'serpapi_fallback_test',\n          search_position: result.position || i + 1,\n          processed_by: executionUser,\n          execution_date: executionDate,\n          execution_time: executionTime,\n          relevance_score: 0.5,\n          has_contact_indicators: false,\n          has_business_indicators: true,\n          research_query: inputParams.search_query,\n          timeframe: inputParams.timeframe,\n          discovery_timestamp: '2025-08-13T22:58:43Z',\n          test_mode: 'single_document_fallback'\n        }\n      });\n      console.log(`✅ TESTING: Fallback selected - ${result.title}`);\n      break;\n    }\n  }\n}\n\nif (processedDocuments.length === 0) {\n  return [{ \n    json: { \n      error: 'No suitable documents found for single document test',\n      total_raw_results: results.length,\n      suggestion: 'All documents were excluded - check filtering criteria',\n      search_query: inputParams.search_query,\n      timeframe: inputParams.timeframe,\n      processed_by: executionUser,\n      timestamp: executionTime,\n      test_mode: 'single_document_failed'\n    } \n  }];\n}\n\nconsole.log(`🧪 SINGLE DOCUMENT TEST READY - Processing: ${processedDocuments[0].json.document_title}`);\nreturn processedDocuments;"
+      },
+      "id": "4f0f9ebe-1e8d-4635-85da-4a1822622102",
+      "name": "Process & Filter Documents",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1136,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-documents-check",
+              "leftValue": "={{ $json.document_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -816,
+        192
+      ],
+      "id": "91cf9884-5188-4933-a6a4-1aa7dd287e0e",
+      "name": "Check Documents Found"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "Z4MBF2MHNxDD8mlf",
+          "mode": "list",
+          "cachedResultName": "FC"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "input_type": "={{ $json.input_type }}",
+            "document_url": "={{ $json.document_url }}",
+            "spreadsheet_id": "={{ $json.spreadsheet_id }}",
+            "processed_by": "={{ $json.processed_by }}",
+            "execution_start": "={{ $json.execution_time }}",
+            "document_title": "={{ $json.document_title }}",
+            "relevance_score": "={{ $json.relevance_score }}",
+            "search_position": "={{ $json.search_position }}",
+            "research_context": "Industry research automation"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -496,
+        112
+      ],
+      "id": "fc56eac7-082d-4190-a09c-946f9cf24a24",
+      "name": "Call FindContacts Workflow"
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "error_type",
+              "stringValue": "No Documents Found"
+            },
+            {
+              "name": "error_message",
+              "stringValue": "={{ $json.error || 'No suitable documents found in search results' }}"
+            },
+            {
+              "name": "search_query",
+              "stringValue": "={{ $json.search_query || $('Set Research Parameters').first().json.search_query }}"
+            },
+            {
+              "name": "timeframe",
+              "stringValue": "={{ $json.timeframe || $('Set Research Parameters').first().json.timeframe }}"
+            },
+            {
+              "name": "total_results",
+              "stringValue": "={{ $json.total_results || 0 }}"
+            },
+            {
+              "name": "suggestions",
+              "stringValue": "Try adding terms like 'contact', 'about us', 'team', 'leadership', 'directory', or 'company' to your search query. Consider expanding timeframe or adjusting industry focus."
+            },
+            {
+              "name": "processed_by",
+              "stringValue": "Don256"
+            },
+            {
+              "name": "error_time",
+              "stringValue": "2025-08-13 22:37:29"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "52833e70-0704-46de-90b5-b343f3624406",
+      "name": "Handle No Documents",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -544,
+        432
+      ]
+    }
+  ],
+  "pinData": {
+    "When clicking Test workflow": [
+      {
+        "json": {
+          "search_query": "AI education companies contact information team leadership",
+          "timeframe": "month",
+          "max_documents": 3,
+          "output_spreadsheet_id": "",
+          "research_focus": "Single document contact extraction test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking Test workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Research Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Research Parameters": {
+      "main": [
+        [
+          {
+            "node": "SerpAPI Document Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI Document Search": {
+      "main": [
+        [
+          {
+            "node": "Process & Filter Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Filter Documents": {
+      "main": [
+        [
+          {
+            "node": "Check Documents Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Documents Found": {
+      "main": [
+        [
+          {
+            "node": "Call FindContacts Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle No Documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call FindContacts Workflow": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "646b4930-b61f-451b-ba79-1ed069c64457",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "aafbb160ea1dce4d296036b9bdac2e9a0e7ae09d75caf7e999496d3c59470a3b"
+  },
+  "id": "Ql2TTYLe0ydZRU40",
+  "tags": []
+}

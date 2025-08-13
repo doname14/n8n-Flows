@@ -1,0 +1,561 @@
+{
+  "name": "FindContacts",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c8c10283-d56d-4721-874b-741942b923e3",
+      "name": "When clicking Test workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "input_type",
+              "stringValue": "={{ $json.input_type || 'url' }}"
+            },
+            {
+              "name": "document_url",
+              "stringValue": "={{ $json.document_url || '' }}"
+            },
+            {
+              "name": "document_content",
+              "stringValue": "={{ $json.document_content || '' }}"
+            },
+            {
+              "name": "spreadsheet_id",
+              "stringValue": "={{ $json.spreadsheet_id || '' }}"
+            },
+            {
+              "name": "processed_by",
+              "stringValue": "Don256"
+            },
+            {
+              "name": "execution_start",
+              "stringValue": "2025-08-13 22:12:45"
+            },
+            {
+              "name": "execution_date",
+              "stringValue": "2025-08-13"
+            },
+            {
+              "name": "execution_time",
+              "stringValue": "22:12:45"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "89712b89-cb5b-4673-9af4-671887e42995",
+      "name": "Set Input Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        -544,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.document_url }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "redirect": {
+            "redirect": {}
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "7c5979f1-bdf0-4028-a2e2-58688274a648",
+      "name": "Fetch URL Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        32,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "extracted_text",
+              "stringValue": "={{ $json.document_content}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3fccadd0-0ee0-45be-b23d-69c87aedb718",
+      "name": "Use Direct Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        32,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "extracted_text",
+              "stringValue": "={{ $json.body || $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "233a1259-dba6-4cfb-805d-28e734c7e766",
+      "name": "Process URL Content",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        400,
+        -144
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "extracted_text",
+              "stringValue": "={{ $json.text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "18d32042-2621-45b1-bbf1-e207e9bf98bf",
+      "name": "Process PDF Content",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        224,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        544,
+        48
+      ],
+      "id": "dfe2d6d5-4f9d-4777-9c4d-9eb50bf66cb6",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug & Clean Text Processing - Don256 - 2025-08-13 22:12:45\nconst data = $json;\n\nconsole.log('=== Debug Text Processing - Don256 - 2025-08-13 22:12:45 ===');\nconsole.log('Available fields:', Object.keys(data));\nconsole.log('Extracted text field exists:', !!data.extracted_text);\nconsole.log('Extracted text length:', data.extracted_text?.length || 0);\nconsole.log('Extracted text preview:', data.extracted_text?.substring(0, 200) || 'NO TEXT FOUND');\n\n// Clean and prepare text for Ollama\nlet cleanText = data.extracted_text || '';\n\nif (!cleanText || cleanText.trim().length === 0) {\n  console.log('❌ No extracted text found');\n  return [{ json: { \n    error: 'No extracted text found for processing',\n    available_fields: Object.keys(data),\n    debug_info: 'Check merge node output - text extraction failed',\n    timestamp: '2025-08-13T22:12:45Z',\n    processed_by: 'Don256'\n  } }];\n}\n\n// Clean HTML and format for AI processing\ncleanText = cleanText\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')  // Remove scripts\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, ' ')    // Remove styles\n  .replace(/<[^>]*>/g, ' ')                         // Remove HTML tags\n  .replace(/&[^;]+;/g, ' ')                         // Remove HTML entities\n  .replace(/\\s+/g, ' ')                            // Normalize whitespace\n  .replace(/\\n+/g, ' ')                            // Remove newlines\n  .trim();\n\n// Limit text length for processing\nconst maxLength = 6000;\nif (cleanText.length > maxLength) {\n  cleanText = cleanText.substring(0, maxLength) + '...[text truncated for AI processing]';\n  console.log('✓ Text truncated to fit processing limits');\n}\n\nif (cleanText.length < 50) {\n  console.log('⚠️ Warning: Very short text content');\n  return [{ json: {\n    error: 'Text content too short for meaningful contact extraction',\n    text_length: cleanText.length,\n    text_preview: cleanText,\n    timestamp: '2025-08-13T22:12:45Z',\n    processed_by: 'Don256'\n  } }];\n}\n\nconsole.log('✅ Text cleaned successfully');\nconsole.log('Cleaned text length:', cleanText.length);\nconsole.log('Cleaned text preview:', cleanText.substring(0, 300));\n\nreturn [{ json: {\n  extracted_text: cleanText,\n  original_length: data.extracted_text?.length || 0,\n  cleaned_length: cleanText.length,\n  processing_timestamp: '2025-08-13T22:12:45Z',\n  processed_by: 'Don256',\n  text_preview: cleanText.substring(0, 200)\n} }];"
+      },
+      "id": "43876641-d146-44ec-993a-45393e1e9ee6",
+      "name": "Debug & Clean Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build Ollama Request - Don256 - 2025-08-13 22:12:45\nconst data = $json;\n\nconsole.log('=== Building Ollama Request - Don256 - 2025-08-13 22:12:45 ===');\nconsole.log('Available fields:', Object.keys(data));\nconsole.log('Extracted text available:', !!data.extracted_text);\nconsole.log('Text length:', data.extracted_text?.length || 0);\nconsole.log('Text preview:', data.extracted_text?.substring(0, 200) || 'NO TEXT');\n\nconst extractedText = data.extracted_text || '';\n\nif (!extractedText || extractedText.length < 50) {\n  console.log('❌ No valid text for Ollama processing');\n  return [{ json: { \n    error: 'No valid text for Ollama processing',\n    text_length: extractedText.length,\n    available_fields: Object.keys(data),\n    timestamp: '2025-08-13T22:12:45Z',\n    processed_by: 'Don256'\n  } }];\n}\n\n// Build the complete Ollama request object\nconst ollamaRequest = {\n  model: \"llama3.1:8b\",\n  prompt: `You are a contact extraction expert. Analyze the following text and extract ALL people mentioned. Return ONLY a valid JSON array. Each person should be an object with these exact fields: first_name, last_name, name, title, company, organization, email, phone. If a field is not available, use empty string. Be thorough - extract everyone mentioned including staff, leaders, speakers, team members, etc.\\n\\nIMPORTANT: Return ONLY the JSON array, no explanations, no markdown, no other text.\\n\\nText to analyze:\\n\\n${extractedText}`,\n  stream: false,\n  options: {\n    temperature: 0.1,\n    num_predict: 3000\n  }\n};\n\nconsole.log('✅ Ollama request built successfully');\nconsole.log('Prompt length:', ollamaRequest.prompt.length);\nconsole.log('Model:', ollamaRequest.model);\nconsole.log('Request preview:', JSON.stringify(ollamaRequest).substring(0, 300));\n\nreturn [{ json: {\n  ollama_request: ollamaRequest,\n  text_length: extractedText.length,\n  processed_by: 'Don256',\n  timestamp: '2025-08-13T22:12:45Z',\n  debug_info: 'Request built with direct string interpolation - no template variables'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        48
+      ],
+      "id": "a03d270a-06c7-4fa5-8b7b-073f4c5fd46b",
+      "name": "Build Ollama Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.ollama_request }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        48
+      ],
+      "id": "627884ee-680f-4080-9086-0581c9d8264f",
+      "name": "Send Ollama Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Ollama Contact Response - Don256 - 2025-08-13 22:12:45\nconst response = $json;\nconst inputParams = $('Set Input Parameters').first().json;\n\nconsole.log('=== Processing Ollama Contact Response - Don256 - 2025-08-13 22:12:45 ===');\nconsole.log('Response Type:', typeof response);\nconsole.log('Response Keys:', Object.keys(response));\n\n// Extract response text from Ollama\nlet responseText = '';\nlet connectionStatus = 'connected';\n\nif (response.response) {\n  responseText = response.response;\n  console.log('✓ Using Ollama response field');\n} else if (response.choices && response.choices[0] && response.choices[0].message) {\n  responseText = response.choices[0].message.content;\n  console.log('✓ Using OpenAI-style format');\n} else if (response.content) {\n  responseText = response.content;\n  console.log('✓ Using content field');\n} else if (response.message && response.message.content) {\n  responseText = response.message.content;\n  console.log('✓ Using message content');\n} else if (typeof response === 'string') {\n  responseText = response;\n  console.log('✓ Using string response');\n} else {\n  console.log('❌ Unknown response format from Ollama');\n  return [{ json: { \n    error: 'Unknown response format from Ollama node', \n    response_sample: JSON.stringify(response).substring(0, 300),\n    available_keys: Object.keys(response),\n    processed_by: 'Don256',\n    timestamp: '2025-08-13 22:12:45',\n    connection_status: 'connected_but_unknown_format'\n  } }];\n}\n\nconsole.log('Response Length:', responseText.length);\nconsole.log('Response Preview:', responseText.substring(0, 200));\n\nif (!responseText || responseText.trim().length === 0) {\n  return [{ json: { \n    error: 'Empty response from Ollama',\n    processed_by: 'Don256',\n    timestamp: '2025-08-13 22:12:45',\n    connection_status: connectionStatus\n  } }];\n}\n\n// Parse JSON response with better error handling\ntry {\n  let cleanText = responseText.trim();\n  \n  // Handle common Ollama response formats\n  if (cleanText.startsWith('```json')) {\n    cleanText = cleanText.replace(/```json\\s*/gi, '').replace(/```\\s*/g, '');\n  }\n  \n  if (cleanText.startsWith('```')) {\n    cleanText = cleanText.replace(/```\\s*/g, '');\n  }\n  \n  // Extract JSON array more reliably\n  const jsonStart = cleanText.indexOf('[');\n  const jsonEnd = cleanText.lastIndexOf(']');\n  \n  if (jsonStart === -1 || jsonEnd === -1 || jsonStart >= jsonEnd) {\n    console.log('❌ No valid JSON array found in response');\n    return [{ json: { \n      error: 'No valid JSON array found in Ollama response', \n      response_preview: cleanText.substring(0, 300),\n      processed_by: 'Don256',\n      timestamp: '2025-08-13 22:12:45',\n      connection_status: connectionStatus\n    } }];\n  }\n  \n  const jsonText = cleanText.substring(jsonStart, jsonEnd + 1);\n  console.log('Extracted JSON:', jsonText.substring(0, 200));\n  \n  const contacts = JSON.parse(jsonText);\n  \n  if (!Array.isArray(contacts)) {\n    console.log('❌ Response is not an array');\n    return [{ json: { \n      error: 'Ollama response is not a JSON array', \n      data_type: typeof contacts,\n      response_preview: jsonText.substring(0, 200),\n      processed_by: 'Don256',\n      timestamp: '2025-08-13 22:12:45',\n      connection_status: connectionStatus\n    } }];\n  }\n  \n  if (contacts.length === 0) {\n    console.log('⚠️ No contacts found in response');\n    return [{ json: { \n      error: 'No contacts found in Ollama response', \n      response_preview: jsonText.substring(0, 200),\n      processed_by: 'Don256',\n      timestamp: '2025-08-13 22:12:45',\n      connection_status: connectionStatus\n    } }];\n  }\n  \n  console.log(`✅ SUCCESS: Processing ${contacts.length} contacts from Ollama`);\n  \n  // Convert to n8n format with enhanced data\n  const processedContacts = contacts.map((contact, index) => {\n    let firstName = contact.first_name || contact.firstName || '';\n    let lastName = contact.last_name || contact.lastName || '';\n    \n    // Parse full name if individual names not provided\n    if (!firstName && !lastName && contact.name) {\n      const nameParts = contact.name.trim().split(/\\s+/);\n      firstName = nameParts[0] || '';\n      lastName = nameParts.slice(1).join(' ') || '';\n    }\n    \n    const fullName = `${firstName} ${lastName}`.trim() || contact.name || '';\n    \n    return {\n      json: {\n        first_name: firstName,\n        last_name: lastName,\n        full_name: fullName,\n        title: contact.title || contact.position || '',\n        organization: contact.company || contact.organization || contact.org || '',\n        email: contact.email || '',\n        phone: contact.phone || contact.telephone || '',\n        extraction_method: 'ollama_no_loop_fixed',\n        relevance_score: 0.95,\n        spreadsheet_id: inputParams.spreadsheet_id || '',\n        processed_by: 'Don256',\n        execution_date: '2025-08-13',\n        execution_time: '2025-08-13 22:12:45',\n        source_preview: fullName || contact.email || `Contact ${index + 1}`,\n        ai_model: 'llama3.1:8b-no-loop-direct',\n        contact_index: index + 1,\n        total_contacts: contacts.length,\n        connection_status: connectionStatus,\n        processing_timestamp: '2025-08-13T22:12:45Z',\n        relevance_raw: `Contact #${index + 1} of ${contacts.length} extracted by Don256 using no-loop direct processing on 2025-08-13 22:12:45. Source: AI Leadership Institute website. Method: Enhanced AI extraction with llama3.1:8b model using direct string interpolation. No loop issues.`\n      }\n    };\n  });\n  \n  console.log(`=== PROCESSING COMPLETE: ${processedContacts.length} contacts by Don256 at 2025-08-13 22:12:45 ===`);\n  return processedContacts;\n  \n} catch (parseError) {\n  console.log('❌ JSON Parse Error:', parseError.message);\n  return [{ \n    json: { \n      error: 'JSON parsing failed in Ollama workflow', \n      error_details: parseError.message,\n      response_sample: responseText.substring(0, 400),\n      processed_by: 'Don256',\n      timestamp: '2025-08-13 22:12:45',\n      connection_status: connectionStatus\n    } \n  }];\n}"
+      },
+      "id": "e7d4f4fe-f6e8-4e84-9fd2-34fe221ad414",
+      "name": "Process Ollama Contact Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "8qLOThIAmmSx25sP",
+          "mode": "list",
+          "cachedResultName": "GC"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "first_name": "={{ $json.first_name }}",
+            "last_name": "={{ $json.last_name }}",
+            "full_name": "={{ $json.full_name }}",
+            "title": "={{ $json.title }}",
+            "organization": "={{ $json.organization }}",
+            "email": "={{ $json.email }}",
+            "phone": "={{ $json.phone }}",
+            "relevance_raw": "={{ $json.relevance_raw }}",
+            "spreadsheet_id": "={{ $json.spreadsheet_id }}",
+            "processed_by": "Don256",
+            "execution_date": "2025-08-13",
+            "execution_time": "2025-08-13 22:12:45"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1744,
+        48
+      ],
+      "id": "b06b0f67-79c5-4628-82c6-eedf0d46387b",
+      "name": "Call GenerateContactCard"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        32,
+        80
+      ],
+      "id": "f1c27fb0-376f-48a2-9bbc-fc77eae483b7",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.input_type }}",
+                    "rightValue": "url",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "72939774-89a7-4133-8c6b-b7fe9212380a"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "28e6f676-48d4-4b3e-9efe-93b0b902d569",
+                    "leftValue": "={{ $json.input_type }}",
+                    "rightValue": "pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "fbc9bf86-3328-46e1-a420-aa4e2431ad5f",
+                    "leftValue": "={{ $json.input_type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -272,
+        64
+      ],
+      "id": "923abc76-6585-4f68-a7a9-64593caa8b76",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final Summary Report - Don256 - 2025-08-13 22:12:45\nconst results = $input.all();\n\nconsole.log('=== Final Summary Report - Don256 - 2025-08-13 22:12:45 ===');\nconsole.log('Total results received:', results.length);\n\n// Process all contact card results\nconst contactResults = results.filter(r => \n  r.json && r.json.first_name !== undefined\n);\n\nconst summary = {\n  total_contacts_processed: contactResults.length,\n  successful_cards: contactResults.filter(r => !r.json.error).length,\n  errors: contactResults.filter(r => r.json.error).length,\n  processing_complete: true,\n  completion_time: '2025-08-13T22:12:45Z',\n  processed_by: 'Don256',\n  workflow_name: 'FindContacts_NoLoop_Direct',\n  no_loop_implementation: 'Direct processing without Split Into Batches',\n  contacts_summary: contactResults.map(r => ({\n    name: r.json.full_name || 'Unknown',\n    organization: r.json.organization || 'Unknown',\n    email: r.json.email || 'No email',\n    title: r.json.title || 'No title',\n    status: r.json.error ? 'Error' : 'Success'\n  }))\n};\n\nconsole.log('✅ Contact extraction workflow completed successfully with direct processing');\nconsole.log(`Processed ${summary.total_contacts_processed} contacts with ${summary.successful_cards} successes`);\n\nreturn [{ json: summary }];"
+      },
+      "id": "3d0235ac-e32b-4ff8-9e99-e60b073681f2",
+      "name": "Final Summary Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        48
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking Test workflow": {
+      "main": [
+        [
+          {
+            "node": "Set Input Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Input Parameters": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch URL Content": {
+      "main": [
+        [
+          {
+            "node": "Process URL Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Direct Text": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Process URL Content": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process PDF Content": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Debug & Clean Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug & Clean Text": {
+      "main": [
+        [
+          {
+            "node": "Build Ollama Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Ollama Request": {
+      "main": [
+        [
+          {
+            "node": "Send Ollama Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Ollama Request": {
+      "main": [
+        [
+          {
+            "node": "Process Ollama Contact Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Ollama Contact Response": {
+      "main": [
+        [
+          {
+            "node": "Call GenerateContactCard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Process PDF Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call GenerateContactCard": {
+      "main": [
+        [
+          {
+            "node": "Final Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Fetch URL Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Direct Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "085a6841-646d-4ebf-a733-d76b7ba9508d",
+  "meta": {
+    "instanceId": "aafbb160ea1dce4d296036b9bdac2e9a0e7ae09d75caf7e999496d3c59470a3b"
+  },
+  "id": "Z4MBF2MHNxDD8mlf",
+  "tags": []
+}

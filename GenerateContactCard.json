@@ -1,0 +1,404 @@
+{
+  "name": "GenerateContactCard",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        192
+      ],
+      "id": "2fe97a44-600c-4e84-be8d-f93b7410c558",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Contact Data with Sheet ID - Don256 - 2025-08-13 21:10:00\nconst inputData = $input.all();\nconst item = inputData[0].json;\n\nconsole.log('=== Processing Contact Data - Don256 - 2025-08-13 21:10:00 ===');\n\nconst contactCard = {\n  first_name: item.first_name || '',\n  last_name: item.last_name || '',\n  title: item.title || '',\n  organization: item.organization || '',\n  email: item.email || '',\n  relevance_raw: item.relevance_raw || '',\n  relevance_polished: item.relevance_raw ? `${item.relevance_raw.substring(0, 100)}...` : '',\n  added_on: '2025-08-13',\n  modified_on: '2025-08-13',\n  full_name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),\n  contact_summary: `${item.title || 'Contact'} at ${item.organization || 'Unknown Organization'}`,\n  processed_by: 'Don256',\n  processing_time: '2025-08-13T21:10:00Z',\n  existing_spreadsheet_id: item.spreadsheet_id || ''\n};\n\nconsole.log('✅ Contact card created for:', contactCard.full_name);\nconsole.log('Existing Sheet ID:', contactCard.existing_spreadsheet_id || 'None - will create new');\n\nreturn [{ json: contactCard }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        240
+      ],
+      "id": "2b320bb9-07da-4a6b-a052-96ae531c4336",
+      "name": "Process Contact Data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3.1:8b\",\n  \"prompt\": \"Analyze contact: {{ $json.full_name }} ({{ $json.title }} at {{ $json.organization }}). Context: {{ $json.relevance_raw }}. Provide a 2-3 sentence business intelligence summary focusing on AI/tech opportunities.\",\n  \"stream\": false,\n  \"options\": {\n    \"temperature\": 0.3,\n    \"num_predict\": 200\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -784,
+        240
+      ],
+      "id": "1ea9f33c-7e6c-4ed4-b109-085831d565a9",
+      "name": "Ollama Contact Enhancer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Ollama Enhancement - Don256 - 2025-08-13 21:10:00\nconst ollamaResponse = $json;\nconst contactData = $('Process Contact Data').first().json;\n\nconsole.log('=== Processing Ollama Enhancement - Don256 ===');\n\nlet enhancedSummary = 'Enhanced summary unavailable';\n\nif (ollamaResponse.response) {\n  enhancedSummary = ollamaResponse.response.trim().substring(0, 400);\n  console.log('✓ Using Ollama response');\n} else if (ollamaResponse.body && ollamaResponse.body.response) {\n  enhancedSummary = ollamaResponse.body.response.trim().substring(0, 400);\n  console.log('✓ Using Ollama body.response');\n} else {\n  console.log('✓ Using fallback summary');\n}\n\nconst completeData = {\n  First_Name: contactData.first_name,\n  Last_Name: contactData.last_name,\n  Full_Name: contactData.full_name,\n  Title: contactData.title,\n  Organization: contactData.organization,\n  Email: contactData.email,\n  Relevance_Raw: contactData.relevance_raw.substring(0, 500),\n  Relevance_Polished: enhancedSummary,\n  Added_On: '2025-08-13',\n  Modified_On: '2025-08-13',\n  Contact_Summary: contactData.contact_summary,\n  Processed_By: 'Don256',\n  Processing_Timestamp: '2025-08-13T21:10:00Z',\n  AI_Enhanced: 'Yes',\n  Enhancement_Method: 'ollama_llama3.1:8b',\n  existing_spreadsheet_id: contactData.existing_spreadsheet_id\n};\n\nconsole.log('✅ Complete data prepared for:', completeData.Full_Name);\nreturn [{ json: completeData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        240
+      ],
+      "id": "abe30a73-bf0a-4ba5-aadd-3998c59514a2",
+      "name": "Process Ollama Enhancement"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-existing-sheet",
+              "leftValue": "={{ $json.existing_spreadsheet_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -368,
+        240
+      ],
+      "id": "46467327-0e83-4dbd-b1e6-15f511866107",
+      "name": "Check Sheet Exists"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.existing_spreadsheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ContactData",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -96,
+        80
+      ],
+      "id": "f103b123-8e56-45ec-8a53-0b741e336642",
+      "name": "Append to Existing Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5kjcS6ZwteZfzHMz",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $json.Full_Name }} Enhanced Contact Card - 2025-08-13",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "ContactData"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -160,
+        352
+      ],
+      "id": "a648bb72-80cb-497c-b8d7-70bed14fa064",
+      "name": "Create New Enhanced Sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5kjcS6ZwteZfzHMz",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Final Data for New Sheet - Don256 - 2025-08-13 21:10:00\nconst sheetInfo = $json;\nconst contactData = $('Process Ollama Enhancement').first().json;\n\nconsole.log('=== Preparing Final Data for New Sheet - Don256 ===');\n\nconst finalData = {\n  ...contactData,\n  spreadsheetId: sheetInfo.spreadsheetId,\n  spreadsheetUrl: sheetInfo.spreadsheetUrl,\n  sheet_action: 'created_new'\n};\n\nconsole.log('✅ Final data ready for new sheet append');\nreturn [{ json: finalData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        352
+      ],
+      "id": "f8c5ebc0-8720-4c15-80c8-2870295d4dce",
+      "name": "Prepare New Data"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.spreadsheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "ContactData",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        256,
+        352
+      ],
+      "id": "3344e59a-229c-4759-8b97-02357bb69c9f",
+      "name": "Append to New Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5kjcS6ZwteZfzHMz",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare Email Data - Don256 - 2025-08-13 21:10:00\nconst data = $json;\n\nconsole.log('=== Preparing Email Data - Don256 ===');\n\n// Determine action and URL\nlet sheetAction, sheetUrl;\n\nif (data.spreadsheetId) {\n  sheetAction = data.sheet_action || 'updated';\n  sheetUrl = data.spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit`;\n} else {\n  sheetAction = 'appended_to_existing';\n  sheetUrl = `https://docs.google.com/spreadsheets/d/${data.existing_spreadsheet_id}/edit`;\n}\n\nconst emailData = {\n  ...data,\n  sheet_action: sheetAction,\n  spreadsheetUrl: sheetUrl,\n  email_timestamp: '2025-08-13T21:10:00Z'\n};\n\nconsole.log('✅ Email data prepared');\nreturn [{ json: emailData }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        240
+      ],
+      "id": "e89936ae-aeb0-4846-b6ee-0432fb4de348",
+      "name": "Prepare Email Data"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@domain.com",
+        "toEmail": "don256@domain.com",
+        "subject": "=Enhanced Contact: {{$json.Full_Name}} - 2025-08-13",
+        "emailFormat": "text",
+        "text": "=Enhanced Contact Card Created for {{ $json.Full_Name }}\n\n=== CONTACT DETAILS ===\nName: {{ $json.Full_Name }}\nTitle: {{ $json.Title }}\nOrganization: {{ $json.Organization }}\nEmail: {{ $json.Email }}\n\n=== AI ENHANCED ANALYSIS ===\n{{ $json.Relevance_Polished }}\n\n=== METADATA ===\nSheet Action: {{ $json.sheet_action }}\nGoogle Sheet: {{ $json.spreadsheetUrl }}\nProcessed by: Don256\nProcessing Time: 2025-08-13T21:16:47Z\n\n\n---\nThis contact analysis was enhanced using {{ $json.Enhancement_Method }} for business intelligence purposes.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        240
+      ],
+      "id": "dcec3eff-1566-4941-a149-18874056a467",
+      "name": "Send Enhanced Notification",
+      "webhookId": "6c9cfb49-132f-406a-a629-e188ffc8bfb9",
+      "credentials": {
+        "smtp": {
+          "id": "5TcnBZH7bUMlCqas",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "When clicking 'Execute workflow'": [
+      {
+        "json": {
+          "first_name": "John",
+          "last_name": "Doe",
+          "title": "Software Engineer",
+          "organization": "Tech Corp",
+          "email": "doname14@gmail.com",
+          "relevance_raw": "what makes the client interesting from an ibl.ai standpoint? What has the client (or the client's organization) done in terms of generative AI for the organization? What does the client's leadership say about generative AI and similar products? What platforms are they using (for generative AI, if any) as well as what LMS (Canvas, Brightspace or Blackboard)?",
+          "spreadsheet_id": ""
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Process Contact Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Contact Data": {
+      "main": [
+        [
+          {
+            "node": "Ollama Contact Enhancer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Contact Enhancer": {
+      "main": [
+        [
+          {
+            "node": "Process Ollama Enhancement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Ollama Enhancement": {
+      "main": [
+        [
+          {
+            "node": "Check Sheet Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Sheet Exists": {
+      "main": [
+        [
+          {
+            "node": "Append to Existing Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create New Enhanced Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Existing Sheet": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create New Enhanced Sheet": {
+      "main": [
+        [
+          {
+            "node": "Prepare New Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare New Data": {
+      "main": [
+        [
+          {
+            "node": "Append to New Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to New Sheet": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send Enhanced Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c6e5b168-7012-475a-836e-fbc1a8acb5f1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "aafbb160ea1dce4d296036b9bdac2e9a0e7ae09d75caf7e999496d3c59470a3b"
+  },
+  "id": "8qLOThIAmmSx25sP",
+  "tags": []
+}
